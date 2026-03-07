@@ -1,7 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "TLAplus"
+      "mcp__tlaplus__*"
     ],
     "deny": [
       "Bash(sudo:*)",
@@ -42,7 +42,7 @@
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
-    "TLAplus"
+    "tlaplus"
   ],
   "hooks": {
   }
