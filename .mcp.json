@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "TLAplus": {
+      "command": "node",
+      "args": ["build/index.js"]
+    }
+  }
+}
