@@ -13,7 +13,7 @@
   "main": "./build/server.js",
   "types": "./build/server.d.ts",
   "bin": {
-    "tlaplus-mcp": "./build/index.js"
+    "tlaplus-mcp": "build/index.js"
   },
   "exports": {
     ".": {
