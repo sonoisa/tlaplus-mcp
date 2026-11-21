@@ -1,26 +1,29 @@
 # tlaplus-mcp
 
+[![M8ven Verified](https://m8ven.ai/badge/mcp/tlaplus-mcp-eypuyk?variant=verified)](https://m8ven.ai/mcp/tlaplus-mcp-eypuyk?s=readme)
+
 A TLA+ model checking MCP server that provides syntax checking (SANY), PlusCal translation, and TLC model checking via the Model Context Protocol.
 
 ## Requirements
 
 - Node.js >= 18
+- pnpm 10.30.3 (for development)
 - Java >= 17 (required to run `tla2tools.jar`)
 
 ## Setup
 
 ```bash
-npm install
-npm run build
+pnpm install
+pnpm run build
 ```
 
 ## Development Commands
 
 ```bash
-npm run dev        # Development mode (tsx watch)
-npm run build      # TypeScript build
-npm test           # Run tests
-npm run pack:check # Check package contents
+pnpm run dev        # Development mode (tsx watch)
+pnpm run build      # TypeScript build
+pnpm test           # Run tests
+pnpm run pack:check  # Check package contents
 ```
 
 ## MCP Client Configuration
@@ -38,20 +41,23 @@ Local build:
 }
 ```
 
-Via npx:
+Via pnpm:
 
 ```json
 {
   "mcpServers": {
     "tlaplus": {
-      "command": "npx",
-      "args": ["-y", "tlaplus-mcp"]
+      "command": "pnpm",
+      "args": ["dlx", "tlaplus-mcp"]
     }
   }
 }
 ```
 
 ## Tools
+
+Tool arguments are limited to 10,000 total object keys and array elements per call.
+Calls exceeding this limit are rejected before schema validation or tool execution.
 
 ### `sany_parse`
 

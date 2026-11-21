@@ -9,10 +9,10 @@ import {
 } from "./tlaplus.js";
 
 export function createServer(): McpServer {
-  const server = new McpServer({
-    name: SERVER_INFO.name,
-    version: SERVER_INFO.version,
-  });
+  const server = new McpServer(
+    { name: SERVER_INFO.name, version: SERVER_INFO.version },
+    { maxToolInputElements: 10_000 },
+  );
 
   // ─── Tool: sany_parse ──────────────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ export function createServer(): McpServer {
             .optional()
             .describe("Temporal property names to check"),
           constants: z
-            .record(z.string())
+            .record(z.string(), z.string())
             .optional()
             .describe('CONSTANT assignments (e.g. {"N": "3"})'),
           symmetry: z.string().optional().describe("SYMMETRY set name"),
