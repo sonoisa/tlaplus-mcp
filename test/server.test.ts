@@ -1,9 +1,45 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createServer } from "../src/server.js";
 import { SERVER_INFO } from "../src/package-info.js";
+
+test("README TLC inputs reproduce the published output excerpts", async () => {
+  // Tests are compiled into .test-build/test before execution.
+  const readme = readFileSync(new URL("../../README.md", import.meta.url), "utf-8");
+  const section = readme.split("**Reproducible examples: bounded counter**")[1]?.split("## Prompts")[0];
+  assert.ok(section, "Missing README TLC examples");
+  const blocks = [...section.matchAll(/```json\n([\s\S]*?)```/g)].map((match) => JSON.parse(match[1]!));
+  assert.equal(blocks.length, 4, "Expected two input/output pairs");
+  const server = createServer();
+  const client = new Client({ name: "readme-test", version: "1.0.0" });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  try {
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+    for (const offset of [0, 2]) {
+      const expected = blocks[offset + 1];
+      const result = await client.callTool({ name: "tlc_check", arguments: blocks[offset] });
+      assert.equal(result.isError, !expected.success);
+      const content = result.content as Array<{ type: string; text?: string }>;
+      const text = content[0]?.text;
+      assert.ok(text, JSON.stringify(result));
+      const actual = JSON.parse(text);
+      assert.equal(typeof actual.rawOutput, "string");
+      delete actual.rawOutput;
+      for (const state of actual.trace) {
+        assert.equal(typeof state.label, "string");
+        delete state.label;
+      }
+      assert.deepEqual(actual, expected);
+    }
+  } finally {
+    await client.close();
+    await server.close();
+  }
+});
 
 test("MCP annotations, schemas, validation and input limits remain consistent", async () => {
   const server = createServer();
@@ -98,6 +134,63 @@ test("MCP annotations, schemas, validation and input limits remain consistent", 
     });
     assert.equal(invalid.isError, true);
     assert.match(JSON.stringify(invalid.content), /Input validation error:.*constants/);
+  } finally {
+    await client.close();
+    await server.close();
+  }
+});
+
+test("published examples demonstrate a Mutex design error and valid PlusCal", async () => {
+  const server = createServer();
+  const client = new Client({ name: "examples-test", version: "1.0.0" });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  try {
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+    const resource = await client.readResource({ uri: "tlaplus://examples" });
+    const content = resource.contents[0];
+    assert.ok(content && "text" in content);
+    const sections = String(content.text).split(/^## /m);
+    const example = (heading: string) => {
+      const section = sections.find((section) => section.startsWith(heading));
+      assert.ok(section, `Missing example: ${heading}`);
+      const spec = section.match(/```tla\n([\s\S]*?)```/)?.[1];
+      const options = section.match(/```json\n([\s\S]*?)```/)?.[1];
+      assert.ok(spec && options, `Missing source or configuration: ${heading}`);
+      return { spec, ...JSON.parse(options) };
+    };
+    const call = async (name: string, args: Record<string, unknown>) => {
+      const result = await client.callTool({ name, arguments: args });
+      const blocks = result.content as Array<{ type: string; text?: string }>;
+      const text = blocks[0]?.text;
+      assert.ok(text, JSON.stringify(result));
+      return { isError: result.isError, body: JSON.parse(text) };
+    };
+
+    const mutex = example("Mutex:");
+    const parsedMutex = await call("sany_parse", { spec: mutex.spec });
+    assert.equal(parsedMutex.body.valid, true, JSON.stringify(parsedMutex));
+    const failed = await call("tlc_check", mutex);
+    assert.equal(failed.isError, true);
+    assert.equal(failed.body.success, false);
+    assert.deepEqual(failed.body.violation, { type: "invariant", name: "MutualExclusion" });
+    const lastState = failed.body.trace.at(-1);
+    assert.ok(lastState, "Expected a counterexample trace");
+    assert.match(lastState.variables.pc, /0 :> "critical"/);
+    assert.match(lastState.variables.pc, /1 :> "critical"/);
+
+    const dining = example("PlusCal Example: Dining Philosophers");
+    const translated = await call("pluscal_translate", { spec: dining.spec });
+    assert.equal(translated.isError, false, JSON.stringify(translated));
+    assert.equal(translated.body.success, true);
+    assert.match(translated.body.translated, /BEGIN TRANSLATION/);
+    const parsed = await call("sany_parse", { spec: translated.body.translated });
+    assert.equal(parsed.body.valid, true, JSON.stringify(parsed));
+    const checked = await call("tlc_check", { ...dining, spec: translated.body.translated });
+    assert.equal(checked.isError, false, JSON.stringify(checked));
+    assert.equal(checked.body.success, true);
+    assert.equal(checked.body.violation, null);
+    assert.ok(checked.body.states.distinct > 1);
   } finally {
     await client.close();
     await server.close();

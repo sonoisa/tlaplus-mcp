@@ -80,7 +80,7 @@ Next == count' = count + 1
 ====
 ```
 
-**Example output:**
+**Example output (abbreviated; `...` marks omitted text):**
 
 ```json
 {
@@ -112,7 +112,7 @@ EXTENDS Integers
 ====
 ```
 
-**Example output:**
+**Example output (abbreviated; `...` marks omitted text):**
 
 ```json
 {
@@ -147,30 +147,114 @@ Specifications can use modules such as `Json` to read and overwrite host files a
 | `workers` | `number` | Number of worker threads (default: `1`) |
 | `dumpTrace` | `boolean` | Dump counterexample trace as JSON (default: `false`) |
 
-**Example output (success):**
+**Reproducible examples: bounded counter**
+
+The same model is checked in both examples. It starts at zero, increments to
+three, and then stays at three. `TypeOK` holds in every reachable state;
+`BelowThree` deliberately fails when `x = 3`.
+
+Pass each JSON object below as the arguments to `tlc_check`. The `spec` field
+contains the complete TLA+ source; no separate file is needed. Both examples use
+one worker and keep the default deadlock check enabled.
+
+The outputs are actual results from the bundled TLC, shown as excerpts of the
+JSON inside the MCP response's `content[0].text`. `rawOutput` and trace `label`
+fields are omitted. The MCP response has `isError: false` for the successful
+check and `isError: true` for the intentional invariant violation. State counts
+and diagnostic labels may change with TLC versions or execution settings.
+
+**Example input (success):**
+
+```json
+{
+  "spec": "---- MODULE BoundedCounter ----\nEXTENDS Naturals\nVARIABLE x\nInit == x = 0\nNext == x' = IF x < 3 THEN x + 1 ELSE x\nTypeOK == x \\in 0..3\nBelowThree == x < 3\n====",
+  "config": {
+    "init": "Init",
+    "next": "Next",
+    "invariants": [
+      "TypeOK"
+    ]
+  },
+  "workers": 1,
+  "dumpTrace": false
+}
+```
+
+**Example output (success, excerpt):**
 
 ```json
 {
   "success": true,
-  "states": { "found": 10, "distinct": 5, "depth": 4 },
+  "states": {
+    "found": 5,
+    "distinct": 4,
+    "depth": 4
+  },
   "violation": null,
-  "trace": [],
-  "rawOutput": "..."
+  "trace": []
 }
 ```
 
-**Example output (violation):**
+**Example input (intentional violation):**
+
+Only the invariant changes to `BelowThree`. The expected counterexample is
+`x = 0 → 1 → 2 → 3`, showing why `x < 3` does not hold.
+
+```json
+{
+  "spec": "---- MODULE BoundedCounter ----\nEXTENDS Naturals\nVARIABLE x\nInit == x = 0\nNext == x' = IF x < 3 THEN x + 1 ELSE x\nTypeOK == x \\in 0..3\nBelowThree == x < 3\n====",
+  "config": {
+    "init": "Init",
+    "next": "Next",
+    "invariants": [
+      "BelowThree"
+    ]
+  },
+  "workers": 1,
+  "dumpTrace": false
+}
+```
+
+**Example output (violation, excerpt):**
 
 ```json
 {
   "success": false,
-  "states": { "found": 8, "distinct": 4, "depth": 3 },
-  "violation": { "type": "invariant", "name": "TypeOK" },
+  "states": {
+    "found": 4,
+    "distinct": 4,
+    "depth": 4
+  },
+  "violation": {
+    "type": "invariant",
+    "name": "BelowThree"
+  },
   "trace": [
-    { "stateNum": 1, "label": "Initial predicate", "variables": { "x": "0" } },
-    { "stateNum": 2, "label": "Next", "variables": { "x": "-1" } }
-  ],
-  "rawOutput": "..."
+    {
+      "stateNum": 1,
+      "variables": {
+        "x": "0"
+      }
+    },
+    {
+      "stateNum": 2,
+      "variables": {
+        "x": "1"
+      }
+    },
+    {
+      "stateNum": 3,
+      "variables": {
+        "x": "2"
+      }
+    },
+    {
+      "stateNum": 4,
+      "variables": {
+        "x": "3"
+      }
+    }
+  ]
 }
 ```
 
@@ -182,7 +266,7 @@ Specifications can use modules such as `Json` to read and overwrite host files a
 ## Resources
 
 - **`tlaplus://docs`** — TLA+ quick reference (operators, syntax, standard modules)
-- **`tlaplus://examples`** — Example TLA+ specifications (Counter, Mutex, Producer-Consumer, Dining Philosophers)
+- **`tlaplus://examples`** — Example TLA+ specifications (Counter, an intentionally incorrect Mutex design with a counterexample, Producer-Consumer, and a valid Dining Philosophers PlusCal model)
 - **`tlaplus://cfg-format`** — TLC configuration file (.cfg) format reference
 
 ## License

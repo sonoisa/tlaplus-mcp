@@ -385,7 +385,10 @@ INVARIANT TypeOK
 CONSTRAINT CountBounded
 \`\`\`
 
-## Mutex (Two-Process Mutual Exclusion)
+## Mutex: Detecting a Mutual Exclusion Design Error
+
+This model is intentionally incorrect. Use it to see how TLC finds a design error,
+not as a working mutual exclusion algorithm.
 \`\`\`tla
 ---- MODULE Mutex ----
 EXTENDS Integers
@@ -427,6 +430,16 @@ MutualExclusion ==
   ~ (pc[0] = "critical" /\\ pc[1] = "critical")
 ====
 \`\`\`
+
+To check this example, pass the module above as spec to tlc_check with:
+\`\`\`json
+{"config":{"init":"Init","next":"Next","invariants":["TypeOK","MutualExclusion"]}}
+\`\`\`
+Expected result: success=false, violation.type="invariant", and
+violation.name="MutualExclusion". This is the intended detection of a design error.
+One counterexample is Request(0), Enter(0), Request(1), Enter(1), leaving both
+processes in "critical". Enter incorrectly allows entry when the other process
+is not "waiting", which includes the "critical" state.
 
 ## Producer-Consumer with Bounded Buffer
 \`\`\`tla
@@ -483,40 +496,52 @@ NoOverflow == Len(buf) <= BufCapacity
 \`\`\`
 
 ## PlusCal Example: Dining Philosophers
+
+This C-syntax PlusCal example acquires the lower-numbered fork before the
+higher-numbered fork. This common ordering prevents circular waiting.
+Use N >= 2. The finite N=3 configuration below checks for deadlock;
+it does not establish starvation freedom.
 \`\`\`tla
 ---- MODULE DiningPhilosophers ----
 EXTENDS Integers, FiniteSets
 
 CONSTANTS N
 
-ASSUME N \\in Nat \\ {0}
+ASSUME N \\in Nat /\\ N >= 2
 
 (* --algorithm DiningPhilosophers {
   variables forks = [i \\in 1..N |-> TRUE]; \\* TRUE = available
 
-  process phil \\in 1..N
-    variables left = 0, right = 0;
+  process (phil \\in 1..N)
+    variables left = IF self < N THEN self ELSE 1,
+              right = IF self < N THEN self + 1 ELSE N;
   {
     think:
       skip;
     getLeft:
-      await forks[self];
-      forks[self] := FALSE;
-      left := self;
+      await forks[left];
+      forks[left] := FALSE;
     getRight:
-      await forks[(self % N) + 1];
-      forks[(self % N) + 1] := FALSE;
-      right := (self % N) + 1;
+      await forks[right];
+      forks[right] := FALSE;
     eat:
       skip;
     release:
-      forks[left] := TRUE;
-      forks[right] := TRUE;
+      forks := [f \\in 1..N |-> IF f = left \\/ f = right THEN TRUE ELSE forks[f]];
       goto think;
   }
 } *)
 ====
 \`\`\`
+
+First pass the module to pluscal_translate. Then pass the returned translated
+source as spec to sany_parse and tlc_check. For tlc_check use:
+\`\`\`json
+{"config":{"specification":"Spec","constants":{"N":"3"},"checkDeadlock":true}}
+\`\`\`
+Expected results: translation succeeds, SANY reports valid=true, and TLC returns
+success=true with no violation. Check the translated source, not the untranslated
+PlusCal comment.
 `,
         },
       ],

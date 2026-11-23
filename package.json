@@ -1,6 +1,6 @@
 {
   "name": "tlaplus-mcp",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "author": "Isao Sonobe <sonoisa@gmail.com>",
   "license": "MIT",
   "description": "TLA+ model checking MCP server",
