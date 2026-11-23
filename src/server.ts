@@ -16,11 +16,19 @@ export function createServer(): McpServer {
 
   // ─── Tool: sany_parse ──────────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     "sany_parse",
-    "Parse and syntax-check a TLA+ specification using SANY (Syntactic Analyzer)",
     {
-      spec: z.string().describe("TLA+ specification source code"),
+      description: "Parse and syntax-check a TLA+ specification using SANY (Syntactic Analyzer)",
+      inputSchema: {
+        spec: z.string().describe("TLA+ specification source code"),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     async ({ spec }) => {
       try {
@@ -45,13 +53,21 @@ export function createServer(): McpServer {
 
   // ─── Tool: pluscal_translate ───────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     "pluscal_translate",
-    "Translate a PlusCal algorithm embedded in a TLA+ specification into TLA+",
     {
-      spec: z
-        .string()
-        .describe("TLA+ specification containing PlusCal algorithm"),
+      description: "Translate a PlusCal algorithm embedded in a TLA+ specification into TLA+",
+      inputSchema: {
+        spec: z
+          .string()
+          .describe("TLA+ specification containing PlusCal algorithm"),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
     },
     async ({ spec }) => {
       try {
@@ -76,61 +92,69 @@ export function createServer(): McpServer {
 
   // ─── Tool: tlc_check ──────────────────────────────────────────────────────
 
-  server.tool(
+  server.registerTool(
     "tlc_check",
-    "Run the TLC model checker on a TLA+ specification to verify invariants and temporal properties",
     {
-      spec: z.string().describe("TLA+ specification source code"),
-      config: z
-        .object({
-          init: z
-            .string()
-            .optional()
-            .describe('Init predicate name (e.g. "Init")'),
-          next: z
-            .string()
-            .optional()
-            .describe('Next predicate name (e.g. "Next")'),
-          specification: z
-            .string()
-            .optional()
-            .describe(
-              'SPECIFICATION name (e.g. "Spec"). Alternative to init/next.'
-            ),
-          checkDeadlock: z
-            .boolean()
-            .optional()
-            .default(true)
-            .describe("Whether to check for deadlock (default: true)"),
-          invariants: z
-            .array(z.string())
-            .optional()
-            .describe("Invariant names to check"),
-          properties: z
-            .array(z.string())
-            .optional()
-            .describe("Temporal property names to check"),
-          constants: z
-            .record(z.string(), z.string())
-            .optional()
-            .describe('CONSTANT assignments (e.g. {"N": "3"})'),
-          symmetry: z.string().optional().describe("SYMMETRY set name"),
-          stateConstraint: z
-            .string()
-            .optional()
-            .describe("STATE CONSTRAINT expression"),
-        })
-        .describe("TLC model checking configuration"),
-      workers: z
-        .number()
-        .optional()
-        .default(1)
-        .describe("Number of worker threads"),
-      dumpTrace: z
-        .boolean()
-        .optional()
-        .default(false)
-        .describe("Dump counterexample trace as JSON"),
+      description: "Run the TLC model checker on a TLA+ specification to verify invariants and temporal properties. Specifications can read and overwrite host files through modules such as Json; repeated calls can have additional side effects.",
+      inputSchema: {
+        spec: z.string().describe("TLA+ specification source code"),
+        config: z
+          .object({
+            init: z
+              .string()
+              .optional()
+              .describe('Init predicate name (e.g. "Init")'),
+            next: z
+              .string()
+              .optional()
+              .describe('Next predicate name (e.g. "Next")'),
+            specification: z
+              .string()
+              .optional()
+              .describe(
+                'SPECIFICATION name (e.g. "Spec"). Alternative to init/next.'
+              ),
+            checkDeadlock: z
+              .boolean()
+              .optional()
+              .default(true)
+              .describe("Whether to check for deadlock (default: true)"),
+            invariants: z
+              .array(z.string())
+              .optional()
+              .describe("Invariant names to check"),
+            properties: z
+              .array(z.string())
+              .optional()
+              .describe("Temporal property names to check"),
+            constants: z
+              .record(z.string(), z.string())
+              .optional()
+              .describe('CONSTANT assignments (e.g. {"N": "3"})'),
+            symmetry: z.string().optional().describe("SYMMETRY set name"),
+            stateConstraint: z
+              .string()
+              .optional()
+              .describe("STATE CONSTRAINT expression"),
+          })
+          .describe("TLC model checking configuration"),
+        workers: z
+          .number()
+          .optional()
+          .default(1)
+          .describe("Number of worker threads"),
+        dumpTrace: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe("Dump counterexample trace as JSON"),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
     },
     async ({ spec, config, workers, dumpTrace }) => {
       try {

@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { execSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test, { describe } from "node:test";
 
 import {
@@ -251,6 +254,30 @@ describe(
   "executeTlcCheck integration",
   { skip: !hasJava && "Java not available" },
   () => {
+    test("Json operators can overwrite external files and make repeated calls non-idempotent", () => {
+      // This fixture is outside executeTlcCheck's private working directory.
+      // Only files created by this test are accessed.
+      const fixtureDir = mkdtempSync(join(tmpdir(), "tlaplus-side-effects-"));
+      try {
+        const target = join(fixtureDir, "counter.json");
+        writeFileSync(target, "[41]");
+        const spec = `---- MODULE SideEffects ----
+EXTENDS Naturals, Json
+VARIABLE x
+Init == /\\ x = 0
+        /\\ JsonSerialize(${JSON.stringify(target)}, <<JsonDeserialize(${JSON.stringify(target)})[1] + 1>>)
+Next == UNCHANGED x
+====`;
+        for (const expected of [42, 43]) {
+          const result = executeTlcCheck(spec, { init: "Init", next: "Next" }, 1, false);
+          assert.ok(result.success, result.rawOutput);
+          assert.deepEqual(JSON.parse(readFileSync(target, "utf-8")), [expected]);
+        }
+      } finally {
+        rmSync(fixtureDir, { recursive: true, force: true });
+      }
+    });
+
     test("checks a passing spec", () => {
       const spec = `---- MODULE Pass ----
 EXTENDS Naturals

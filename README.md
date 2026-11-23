@@ -127,6 +127,8 @@ EXTENDS Integers
 
 Run the TLC model checker on a TLA+ specification to verify invariants and temporal properties.
 
+Specifications can use modules such as `Json` to read and overwrite host files accessible to the Java process, including files outside the temporary working directory. Repeating the same call can cause additional changes. Accordingly, `tlc_check` declares `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false`, and `openWorldHint: true`. These annotations describe behavior; they do not restrict file access.
+
 **Parameters:**
 
 | Name | Type | Description |
